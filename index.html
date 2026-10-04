@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Free Energy, Interactively</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#EDF1F4; --surface:#F8FAFC; --ink:#15202B; --muted:#56636F; --rule:#C5CFD7; --band:#E2E8ED;
+  --u:#2B67D1; --pv:#2E7A57; --ts:#C4402B; --acc:#7B3FB0; --gold:#C8901A; --res:#8B98A4; --ok:#2E7A57; --bad:#B42318;
+  --serif:"Newsreader",Georgia,"Times New Roman",serif;
+  --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E151C; --surface:#141D26; --ink:#E3E9EE; --muted:#97A4B0; --rule:#2B3743; --band:#1B2631;
+    --u:#6E9FF2; --pv:#5CC593; --ts:#FF7A66; --acc:#B392F0; --gold:#F0C05C; --res:#5B6976; --ok:#5CC593; --bad:#FF6B5B;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E151C; --surface:#141D26; --ink:#E3E9EE; --muted:#97A4B0; --rule:#2B3743; --band:#1B2631;
+  --u:#6E9FF2; --pv:#5CC593; --ts:#FF7A66; --acc:#B392F0; --gold:#F0C05C; --res:#5B6976; --ok:#5CC593; --bad:#FF6B5B;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--serif);font-size:1.1rem;line-height:1.62;-webkit-font-smoothing:antialiased}
+img,canvas{max-width:100%}
+a{color:var(--acc)}
+:focus-visible{outline:2px solid var(--acc);outline-offset:3px;border-radius:2px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 clamp(1rem,4vw,2.5rem)}
+.prose{max-width:40rem}
+
+header.hero{padding:clamp(2.5rem,7vw,5rem) 0 1.5rem}
+.credit{font-family:var(--sans);font-size:.9rem;color:var(--muted);margin:0 0 1.25rem}
+h1{font-weight:500;font-size:clamp(2.5rem,7.5vw,5.25rem);line-height:.98;letter-spacing:-.025em;margin:0 0 1.25rem;max-width:12ch}
+.lede{font-size:clamp(1.15rem,2.2vw,1.35rem);max-width:37rem;margin:0}
+
+section{padding:clamp(2.5rem,6vw,4rem) 0;border-top:1px solid var(--rule)}
+section:first-of-type{border-top:0;padding-top:1rem}
+h2{font-weight:500;font-size:clamp(1.7rem,3.5vw,2.35rem);line-height:1.1;letter-spacing:-.015em;margin:0 0 1rem}
+h3{font-family:var(--sans);font-weight:600;font-size:1rem;margin:1.75rem 0 .5rem}
+p{margin:0 0 1rem}
+.note{font-size:.95rem;color:var(--muted)}
+
+.eq{display:block;text-align:center;margin:1.25rem 0;overflow-x:auto;overflow-y:hidden;padding:.25rem 0}
+.eq.multi{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;column-gap:2.2em;row-gap:.65rem}
+.boxed.multi{display:inline-flex;flex-wrap:wrap;justify-content:center;align-items:center;column-gap:2em;row-gap:.6rem;max-width:100%}
+.eqp{max-width:100%}
+.multi.chain{column-gap:.35em}
+mjx-container{color:inherit}
+mjx-container[display="true"]{margin:0 !important}
+.stats mjx-container,.legend mjx-container,.cap mjx-container,.ctl small mjx-container,table mjx-container{font-size:105%}
+.ctl output mjx-container{font-size:95%}
+.boxed{display:inline-block;border:1.5px solid var(--acc);padding:.5rem 1rem;border-radius:3px}
+
+.fig{display:grid;grid-template-columns:minmax(0,1fr) 17.5rem;gap:1.5rem;align-items:start;margin-top:1.5rem}
+@media (max-width:820px){.fig{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:1rem}
+.canvas-holder{background:var(--surface);border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+canvas{display:block;width:100%}
+
+.ctl{font-family:var(--sans);font-size:.9rem;margin-bottom:1.1rem}
+.ctl:last-child{margin-bottom:0}
+.ctl label{display:flex;justify-content:space-between;align-items:baseline;gap:.75rem;font-weight:500;margin-bottom:.3rem}
+.ctl .lt{flex:1 1 auto}
+.ctl .lbl{display:block;font-weight:500;margin-bottom:.4rem}
+.ctl output{flex:0 0 auto;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--muted);font-weight:400}
+.ctl small{display:block;color:var(--muted);line-height:1.4;margin-top:.25rem}
+input[type=range]{width:100%;accent-color:var(--acc);margin:0}
+select{font-family:var(--sans);font-size:.9rem;color:var(--ink);background:var(--surface);border:1px solid var(--rule);border-radius:4px;padding:.4rem .5rem;width:100%}
+.btns{display:flex;flex-wrap:wrap;gap:.5rem}
+button{font-family:var(--sans);font-size:.88rem;font-weight:500;color:var(--ink);background:transparent;border:1px solid var(--rule);border-radius:4px;padding:.45rem .8rem;cursor:pointer}
+button:hover{border-color:var(--ink)}
+button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.stats{font-family:var(--sans);font-size:.9rem;display:grid;grid-template-columns:auto auto;gap:.35rem 1rem;margin:0}
+.stats dt{color:var(--muted)}
+.stats dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;font-weight:500;white-space:nowrap}
+.stats .sep{grid-column:1/-1;border-top:1px solid var(--rule);margin:.3rem 0}
+.legend{font-family:var(--sans);font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:1rem;margin:.6rem 0 0;align-items:center}
+.swatch{display:inline-block;width:.75rem;height:.75rem;border-radius:2px;vertical-align:-1px;margin-right:.35rem}
+.swatch.line{height:3px;width:1.1rem;vertical-align:3px;border-radius:0}
+.swatch.dash{height:0;width:1.1rem;vertical-align:3px;border-radius:0;border-top:3px dashed}
+.cap{font-family:var(--sans);font-size:.85rem;color:var(--muted);margin:.5rem .25rem 0}
+.verdict{font-family:var(--sans);font-size:1rem;font-weight:500;margin:.85rem 0 0;max-width:40rem}
+
+/* potentials square */
+.sq{display:grid;grid-template-columns:auto 1fr 1fr;grid-template-rows:auto 1fr 1fr;gap:.35rem;max-width:20rem;font-family:var(--sans);margin:1rem 0}
+.sq .h{font-size:.85rem;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.sq .c{background:var(--surface);border:1.5px solid var(--rule);border-radius:6px;padding:.6rem;text-align:center}
+.sq .c b{font-family:var(--serif);font-style:italic;font-size:1.4rem;font-weight:500;display:block}
+.sq .c span{font-size:.85rem;font-variant-numeric:tabular-nums;color:var(--muted)}
+
+/* classify game */
+.game{display:grid;grid-template-columns:repeat(auto-fill,minmax(12.5rem,1fr));gap:.6rem;margin-top:1rem;font-family:var(--sans);font-size:.9rem}
+.qrow{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:.55rem .7rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.qrow .nm{font-weight:500}
+.qrow .bt{display:flex;gap:.3rem}
+.qrow button{padding:.25rem .5rem;font-size:.8rem}
+.qrow.ok{border-color:var(--ok)} .qrow.no{border-color:var(--bad)}
+.qrow .fb{font-size:.8rem;margin-left:.25rem}
+.qrow.ok .fb{color:var(--ok)} .qrow.no .fb{color:var(--bad)}
+
+footer{border-top:1px solid var(--rule);padding:2rem 0 3rem;font-family:var(--sans);font-size:.9rem;color:var(--muted)}
+footer p{margin:0 0 .4rem}
+</style>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['\\(','\\)']], displayMath: [['\\[','\\]']] },
+  svg: { fontCache: 'global' },
+  options: { enableMenu: false }
+};
+</script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <p class="credit">An interactive demo created by Claude Opus 5.5, based on the lecture notes by Sang Hoon Lee (Statistical Physics 1, Chapter 5, Free Energy and Chemical Thermodynamics, Sections 5.1 and 5.2)</p>
+  <h1>Free Energy</h1>
+  <p class="lede">Real systems are rarely isolated: their temperature, and often their pressure, are fixed by their surroundings. For them, entropy alone is not the guide. The free energies are.</p>
+</header>
+
+<!-- ============ POTENTIALS ============ -->
+<section id="potentials" aria-labelledby="h-pot">
+  <h2 id="h-pot">Free energy as available work</h2>
+  <div class="prose">
+    <p>Chemical reactions and phase transformations usually happen in systems that interact with their surroundings, thermally and often mechanically: the temperature is held fixed by the environment, and often the pressure rather than the volume. We already met the <strong>enthalpy</strong> \(H \equiv U + PV\), the energy needed to create a system out of nothing and put it into an environment at constant pressure, making room for its volume. Two more quantities complete the set:</p>
+    <div class="eq multi"><span class="eqp">\( \displaystyle F \equiv U - TS, \)</span><span class="eqp">\( \displaystyle G \equiv U - TS + PV = F + PV = H - TS \)</span></div>
+    <p>In an environment at temperature \(T\), you can get heat \(T\Delta S = TS\) for free while creating the system, so you need only supply the <strong>Helmholtz free energy</strong> \(F\) as work. Conversely, if you annihilate the system, \(F\) is the most work you can recover, since you must dump heat \(TS\) to get rid of its entropy. At constant pressure too, the work needed (or recoverable) is the <strong>Gibbs free energy</strong> \(G\): a magician pulling a rabbit out of nothing need not summon the whole enthalpy, because \(TS\) flows in spontaneously as heat. These four are the <strong>thermodynamic potentials</strong>.</p>
+  </div>
+  <div class="fig">
+    <div>
+      <div class="canvas-holder"><canvas id="budCanvas" aria-label="The energy budget for creating one mole of gas: U, PV, TS, and the four potentials"></canvas></div>
+      <div class="sq" aria-label="The thermodynamic potentials: subtract TS going right, add PV going down">
+        <div></div><div class="h">→ −TS</div><div></div>
+        <div class="h">↓ +PV</div><div class="c"><b>U</b><span id="sqU">–</span></div><div class="c"><b>F</b><span id="sqF">–</span></div>
+        <div></div><div class="c"><b>H</b><span id="sqH">–</span></div><div class="c"><b>G</b><span id="sqG">–</span></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ctl">
+        <label for="bGas"><span class="lt">One mole of</span></label>
+        <select id="bGas"><option value="4.0026">Helium</option><option value="20.18">Neon</option><option value="39.948">Argon</option></select>
+      </div>
+      <div class="ctl">
+        <label for="bT"><span class="lt">Temperature</span> <output id="bTOut"></output></label>
+        <input type="range" id="bT" min="20" max="1000" step="1" value="298">
+      </div>
+      <div class="ctl">
+        <label for="bP"><span class="lt">Pressure</span> <output id="bPOut"></output></label>
+        <input type="range" id="bP" min="3" max="7" step="0.01" value="5">
+      </div>
+      <dl class="stats">
+        <dt>\(G/N\)</dt><dd id="bMu">–</dd>
+        <dt>\(\mu\) from Section 3.5</dt><dd id="bMu2">–</dd>
+      </dl>
+      <p class="cap" style="margin:.75rem 0 0">For a monatomic ideal gas, from the Sackur–Tetrode entropy. Here \(TS\) is so large that \(F\) and \(G\) are negative: annihilating the gas would <em>yield</em> work. (Strictly, \(F\) should be called the “costly” energy when creating a system; the name comes from the reverse process.)</p>
+    </div>
+  </div>
+
+  <h3>How much work can you really get?</h3>
+  <div class="prose">
+    <p>At constant temperature, \(\Delta F = \Delta U - T\Delta S = Q + W - T\Delta S\). If no new entropy is created, \(Q = T\Delta S\) and \(\Delta F = W\); otherwise \(T\Delta S > Q\). At constant \(T\) and \(P\), split the work into the part done automatically by the environment, \(-P\Delta V\), and any other work, such as electrical:</p>
+    <div class="eq multi"><span class="eqp">\( \displaystyle \Delta F \le W \quad (\text{constant } T), \)</span><span class="eqp">\( \displaystyle \Delta G \le W_{\text{other}} \quad (\text{constant } T, P) \)</span></div>
+    <p>(A sharper, modern statement for processes pulled far from equilibrium is the Jarzynski equality, \(\overline{e^{-W/k_{\mathrm{B}}T}} = e^{-\Delta F/k_{\mathrm{B}}T}\), averaged over all realizations of a process taking the system from equilibrium state A toward the conditions of equilibrium state B, with \(\Delta F = F_B - F_A\): C. Jarzynski, “Nonequilibrium Equality for Free Energy Differences,” <i>Physical Review Letters</i> 78, 2690 (1997).) For chemical reactions, \(\Delta H\) is measured as heat at constant pressure, \(\Delta S\) from heat-capacity data, \(\Delta S = \int (C/T)\,dT\), and \(\Delta G = \Delta H - T\Delta S\) is tabulated at 298 K and 1 bar. Take water, \(\mathrm{H_2O} \to \mathrm{H_2} + \tfrac12\mathrm{O_2}\):</p>
+  </div>
+  <div class="fig">
+    <div>
+      <div class="canvas-holder"><canvas id="elCanvas" aria-label="Energy budget of electrolysis or of a hydrogen fuel cell"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="ctl"><span class="lbl">Run it</span>
+        <div class="btns"><button type="button" data-el="lysis" aria-pressed="true">Electrolysis</button><button type="button" data-el="cell">Fuel cell</button></div>
+      </div>
+      <p class="cap" style="margin:0" id="elCap"></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ IDENTITIES ============ -->
+<section id="identities" aria-labelledby="h-id">
+  <h2 id="h-id">Thermodynamic identities and Maxwell relations</h2>
+  <div class="prose">
+    <p>Starting from \(dU = T\,dS - P\,dV + \mu\,dN\) (Chapter 3) and differentiating each definition gives an identity for every potential, which shows its natural variables: \(U(S,V,N)\), \(H(S,P,N)\), \(F(T,V,N)\), \(G(T,P,N)\). Switching from \(V\) to \(P\), or \(S\) to \(T\), is a Legendre transformation. Each identity yields partial-derivative formulas, and because mixed second derivatives don’t depend on order, each also yields a <strong>Maxwell relation</strong> (Problem 5.12). The <strong>thermodynamic square</strong>, “Very Fat Ugly SHeeP” (or “Good Physicists Have Studied Under Very Fine Teachers”), packs them all in: each potential sits between its natural variables, and the diagonal arrows give the signs.</p>
+  </div>
+  <div class="fig">
+    <div>
+      <div class="canvas-holder"><canvas id="sqCanvas" aria-label="The thermodynamic square with V, F, T across the top, U and G at the sides, and S, H, P across the bottom"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="ctl"><span class="lbl">Potential</span>
+        <div class="btns" id="potBtns"><button type="button" data-pot="U" aria-pressed="true">U</button><button type="button" data-pot="H">H</button><button type="button" data-pot="F">F</button><button type="button" data-pot="G">G</button></div>
+      </div>
+      <div id="potOut" style="font-size:1rem"></div>
+    </div>
+  </div>
+
+  <h3>Why \(C_P\) exceeds \(C_V\)</h3>
+  <div class="prose">
+    <p>Problem 5.14. With \(C_V = T(\partial S/\partial T)_V\) and \(C_P = T(\partial S/\partial T)_P\), expanding \(dS\) in \(T\) and \(V\), then \(dV\) in \(T\) and \(P\), and using a Maxwell relation with the isothermal compressibility \(\kappa_T = -\tfrac1V(\partial V/\partial P)_T\) and thermal expansion coefficient \(\beta = \tfrac1V(\partial V/\partial T)_P\):</p>
+    <div class="eq"><span class="boxed">\( \displaystyle C_P - C_V = \frac{TV\beta^2}{\kappa_T} \)</span></div>
+    <p>always positive, since \(\kappa_T > 0\). For an ideal gas, \(\beta = 1/T\) and \(\kappa_T = 1/P\), giving \(C_P - C_V = PV/T = Nk_{\mathrm{B}}\), as found in Chapter 1. For solids \(\beta\) behaves much like the heat capacity, small at low temperature, so \(C_P\) and \(C_V\) agree there and diverge as \(T\) rises.</p>
+  </div>
+  <div class="fig">
+    <div>
+      <div class="canvas-holder"><canvas id="cpCanvas" aria-label="C_P and C_V for one mole of the chosen substance"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="ctl"><span class="lbl">One mole of</span>
+        <div class="btns"><button type="button" data-cp="water" aria-pressed="true">Water</button><button type="button" data-cp="hg">Mercury</button><button type="button" data-cp="gas">Ideal gas</button></div>
+      </div>
+      <dl class="stats" id="cpStats"></dl>
+      <p class="cap" style="margin:.75rem 0 0">At room temperature, with the textbook’s data for water and mercury (Problem 1.46).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TOWARD EQUILIBRIUM ============ -->
+<section id="tendency" aria-labelledby="h-tend">
+  <h2 id="h-tend">Free energy as a force toward equilibrium</h2>
+  <div class="prose">
+    <p>An isolated system’s entropy tends to increase. A system in contact with a reservoir at temperature \(T\) (large enough to absorb any energy without changing temperature) can give energy away, so look at the total entropy: \(dS_{\text{total}} = dS + dU_R/T_R\). With \(T_R = T\), \(dU_R = -dU\), and fixed \(V\) and \(N\),</p>
+    <div class="eq multi chain"><span class="eqp">\( \displaystyle dS_{\text{total}} = dS - \frac{dU}{T} \)</span><span class="eqp">\( \displaystyle = -\frac1T\,(dU - T\,dS) \)</span><span class="eqp">\( \displaystyle = -\frac1T\,dF \)</span></div>
+    <p>So an increase in the total entropy of the universe is a decrease in the system’s Helmholtz free energy: we can forget the reservoir and just remember that the system will do whatever it can to minimize \(F\). If the volume can change at fixed pressure, the same argument gives \(dS_{\text{total}} = -dG/T\). In summary, with \(N\) fixed: at constant \(U\) and \(V\), \(S\) tends to increase; at constant \(T\) and \(V\), \(F\) tends to decrease; at constant \(T\) and \(P\), \(G\) tends to decrease.</p>
+    <p>\(F = U - TS\) decreases either by lowering \(U\) (giving energy to the reservoir, raising <em>its</em> entropy) or by raising \(S\), and the temperature sets which matters more: at low \(T\), lowering the energy wins; at high \(T\), raising the entropy wins. Below, \(N = 100\) particles each have a ground state and an excited state of energy \(\varepsilon\); \(n\) of them are excited.</p>
+  </div>
+  <div class="fig">
+    <div>
+      <div class="canvas-holder"><canvas id="fmCanvas" aria-label="Energy, minus T times entropy, and free energy versus the number of excited particles"></canvas></div>
+      <div class="legend">
+        <span><span class="swatch line" style="background:var(--u)"></span>\(U = n\varepsilon\)</span>
+        <span><span class="swatch line" style="background:var(--ts)"></span>\(-TS\)</span>
+        <span><span class="swatch line" style="background:var(--acc)"></span>\(F = U - TS\)</span>
+      </div>
+      <p class="verdict" id="fmV"></p>
+    </div>
+    <div class="panel">
+      <div class="ctl">
+        <label for="fmT"><span class="lt">\(k_{\mathrm{B}}T/\varepsilon\)</span> <output id="fmTOut"></output></label>
+        <input type="range" id="fmT" min="0.05" max="5" step="0.01" value="0.5">
+      </div>
+      <dl class="stats">
+        <dt>\(F\) is smallest at \(n\) =</dt><dd id="fmN">–</dd>
+        <dt>\(N/(e^{\varepsilon/k_{\mathrm{B}}T} + 1)\)</dt><dd id="fmA">–</dd>
+      </dl>
+      <p class="cap" style="margin:.75rem 0 0">\(S = k_{\mathrm{B}}\ln\binom{N}{n}\), exactly. As \(T\) grows, the minimum moves from \(n = 0\) toward \(n = N/2\), where the entropy is largest.</p>
+    </div>
+  </div>
+
+  <h3>Extensive and intensive</h3>
+  <div class="prose">
+    <p>Double a system (two identical rabbits side by side) and some quantities double, the <strong>extensive</strong> ones, while others stay the same, the <strong>intensive</strong> ones. Extensive times intensive is extensive, and extensive divided by extensive is intensive; adding an extensive quantity to an intensive one, such as \(G + \mu\), is wrong even when the units match. An exponential of an extensive quantity is multiplicative, like \(\Omega = e^{S/k_{\mathrm{B}}}\). Sort these:</p>
+  </div>
+  <div class="game" id="game"></div>
+  <p class="cap" id="gameScore" style="margin-left:0"></p>
+</section>
+
+<!-- ============ G AND MU ============ -->
+<section id="gibbs" aria-labelledby="h-gm">
+  <h2 id="h-gm">Gibbs free energy and chemical potential</h2>
+  <div class="prose">
+    <p>From \(dG = -S\,dT + V\,dP + \mu\,dN\), \(\mu = (\partial G/\partial N)_{T,P}\): adding one particle at fixed \(T\) and \(P\) raises \(G\) by \(\mu\). Since \(G\) is extensive and \(T\) and \(P\) are intensive, each added particle must add exactly the same amount, so</p>
+    <div class="eq multi"><span class="eqp">\( \displaystyle G = N\mu, \)</span><span class="eqp">\( \displaystyle G = \sum_i N_i\mu_i \)</span></div>
+    <p>for one species and for a mixture. (By contrast, \(\mu = (\partial F/\partial N)_{T,V}\) cannot be constant as particles are added at fixed volume, since the system grows denser.) For an ideal gas, \((\partial\mu/\partial P)_T = V/N = k_{\mathrm{B}}T/P\), so relative to a reference pressure \(P^\circ\) (usually 1 bar),</p>
+    <div class="eq"><span class="boxed">\( \displaystyle \mu(T,P) = \mu^\circ(T) + k_{\mathrm{B}}T\ln(P/P^\circ) \)</span></div>
+    <p>with \(\mu^\circ\) from tables of Gibbs free energies, in agreement with the explicit formula of Section 3.5 (Problem 5.22). For a mixture of ideal gases, use each species’ partial pressure.</p>
+  </div>
+  <div class="fig">
+    <div>
+      <div class="canvas-holder"><canvas id="muCanvas" aria-label="Chemical potential of helium versus pressure, from two formulas"></canvas></div>
+      <div class="legend">
+        <span><span class="swatch line" style="background:var(--acc)"></span>\(\mu^\circ + k_{\mathrm{B}}T\ln(P/P^\circ)\)</span>
+        <span><span class="swatch dash" style="border-color:var(--gold)"></span>\(-k_{\mathrm{B}}T\ln[(V/N)(2\pi mk_{\mathrm{B}}T/h^2)^{3/2}]\)</span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ctl">
+        <label for="mT"><span class="lt">Temperature</span> <output id="mTOut"></output></label>
+        <input type="range" id="mT" min="50" max="1000" step="5" value="298">
+      </div>
+      <dl class="stats">
+        <dt>\(\mu^\circ\) for helium at 1 bar</dt><dd id="mMu0">–</dd>
+        <dt>Slope, \(k_{\mathrm{B}}T\ln 10\) per decade</dt><dd id="mSl">–</dd>
+      </dl>
+      <p class="cap" style="margin:.75rem 0 0">The two curves lie exactly on top of each other.</p>
+    </div>
+  </div>
+
+  <h3>The grand free energy</h3>
+  <div class="prose">
+    <p>Problem 5.23. Subtracting \(\mu N\) gives the <strong>grand free energy</strong> (grand potential), \(\Phi \equiv U - TS - \mu N\), with \(d\Phi = -S\,dT - P\,dV - N\,d\mu\). For a system exchanging both energy and particles with a reservoir, \(dS_{\text{total}} = -d\Phi/T\) at fixed \(T\) and \(\mu\), so \(\Phi\) tends to decrease. By the same extensivity argument as for \(G = N\mu\), \(\Phi = -PV\).</p>
+    <p>Apply it to a single proton in the Sun’s atmosphere (5800 K, about \(2 \times 10^{19}\) electrons per cubic meter), either bare (\(\Phi = 0\)) or holding an electron as a hydrogen atom, with energy \(-13.6\) eV and the electrons’ chemical potential \(\mu = -k_{\mathrm{B}}T\ln[(V/N)(2\pi m_ek_{\mathrm{B}}T/h^2)^{3/2}]\):</p>
+    <div class="eq multi chain"><span class="eqp">\( \displaystyle \Phi_{\text{occupied}} = -13.6\ \mathrm{eV} - \mu \)</span><span class="eqp">\( \displaystyle = -13.6\ \mathrm{eV} \)</span><span class="eqp">\( \displaystyle +\, k_{\mathrm{B}}T\ln\!\left[\frac{1}{n}\left(\frac{2\pi m_ek_{\mathrm{B}}T}{h^2}\right)^{3/2}\right] \)</span></div>
+  </div>
+  <div class="fig">
+    <div>
+      <div class="canvas-holder"><canvas id="sunCanvas" aria-label="Grand free energy of the occupied state versus temperature"></canvas></div>
+      <p class="verdict" id="sunV"></p>
+    </div>
+    <div class="panel">
+      <div class="ctl">
+        <label for="sT"><span class="lt">Temperature</span> <output id="sTOut"></output></label>
+        <input type="range" id="sT" min="3000" max="20000" step="10" value="5800">
+      </div>
+      <div class="ctl">
+        <label for="sN"><span class="lt">Electron density \(n\)</span> <output id="sNOut"></output></label>
+        <input type="range" id="sN" min="16" max="24" step="0.05" value="19.3">
+      </div>
+      <dl class="stats">
+        <dt>\(\Phi_{\text{occupied}}\)</dt><dd id="sPhi">–</dd>
+        <dt>\(\Phi_{\text{unoccupied}}\)</dt><dd>0 eV</dd>
+        <dt>Equally stable at</dt><dd id="sX">–</dd>
+      </dl>
+      <p class="cap" style="margin:.75rem 0 0">The lecture estimates about 8800 K by holding the \(T\) inside the logarithm at 5800 K; solving exactly gives about 8600 K. For a single proton, this is only a probabilistic prediction.</p>
+    </div>
+  </div>
+  <p class="prose note" style="margin-top:1.5rem">Next, in Section 5.3: phase transformations, discontinuous changes in a substance’s properties as its environment changes only infinitesimally, where these free energies decide which phase wins.</p>
+</section>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p>Created by Claude Opus 5.5, based on the lecture notes by Sang Hoon Lee (Statistical Physics 1, Chapter 5, Free Energy and Chemical Thermodynamics, Sections 5.1 and 5.2, with Problems 5.12, 5.14 and 5.21 to 5.23).</p>
+    <p>Constants: \(k_{\mathrm{B}} = 1.381 \times 10^{-23}\ \mathrm{J/K}\), \(h = 6.626 \times 10^{-34}\ \mathrm{J\,s}\), \(N_A = 6.022 \times 10^{23}\). Water-splitting values from the textbook’s table at 298 K and 1 bar. Equations typeset with MathJax.</p>
+    <p>Reference: C. Jarzynski, “Nonequilibrium Equality for Free Energy Differences,” <i>Physical Review Letters</i> 78, 2690 (1997).</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+"use strict";
+const $ = id => document.getElementById(id);
+let C = {};
+function readColors(){
+  const cs = getComputedStyle(document.documentElement);
+  ['bg','surface','ink','muted','rule','band','u','pv','ts','acc','gold','res','ok','bad'].forEach(k => C[k] = cs.getPropertyValue('--'+k).trim());
+}
+readColors();
+const SANS = '"Instrument Sans", system-ui, sans-serif';
+const SERIF = '"Newsreader", Georgia, serif';
+function fit(cv, LW, LH){
+  const w = cv.parentElement.clientWidth || LW, hgt = w*LH/LW;
+  cv.style.height = hgt + 'px';
+  const d = window.devicePixelRatio || 1;
+  cv.width = Math.round(w*d); cv.height = Math.round(hgt*d);
+  const ctx = cv.getContext('2d'); const s = w*d/LW;
+  ctx.setTransform(s,0,0,s,0,0);
+  return ctx;
+}
+function rich(c, x, y, size, parts, align){
+  c.save(); c.textAlign = 'left';
+  const fontOf = st => st==='i' ? 'italic '+size+'px '+SERIF : st==='isub' ? 'italic '+(size*0.7)+'px '+SERIF : (st==='sub'||st==='sup') ? (size*0.7)+'px '+SERIF : st==='s' ? (size*0.88)+'px '+SANS : st==='sb' ? '600 '+(size*0.88)+'px '+SANS : size+'px '+SERIF;
+  const widths = parts.map(([t,st]) => { c.font = fontOf(st); return c.measureText(t).width; });
+  const total = widths.reduce((a,b)=>a+b,0);
+  let cx = align==='center' ? x-total/2 : align==='right' ? x-total : x;
+  parts.forEach(([t,st],i) => { c.font = fontOf(st); const dy = (st==='sub'||st==='isub') ? size*0.25 : st==='sup' ? -size*0.38 : 0; c.fillText(t, cx, y+dy); cx += widths[i]; });
+  c.restore(); return total;
+}
+const signed = (x,d) => (x<0 && Math.abs(x).toFixed(d) !== (0).toFixed(d) ? '−' : '') + Math.abs(x).toFixed(d);
+function axes(c, W, H, box, xr, yr, xt, yt, xlab, ylab, xfmt, yfmt){
+  const [L,T,Rr,B] = box;
+  c.clearRect(0,0,W,H); c.fillStyle=C.surface; c.fillRect(0,0,W,H);
+  const X = v => L + (v-xr[0])/(xr[1]-xr[0])*(W-L-Rr), Y = v => H-B - (v-yr[0])/(yr[1]-yr[0])*(H-T-B);
+  c.font='12px '+SANS; c.fillStyle=C.muted; c.textAlign='center';
+  xt.forEach(v => { c.strokeStyle = C.band; c.lineWidth=1; c.beginPath(); c.moveTo(X(v),T); c.lineTo(X(v),H-B); c.stroke(); c.fillText(xfmt ? xfmt(v) : String(v), X(v), H-B+16); });
+  c.textAlign='right'; yt.forEach(v => { c.strokeStyle = v===0 ? C.rule : C.band; c.beginPath(); c.moveTo(L,Y(v)); c.lineTo(W-Rr,Y(v)); c.stroke(); c.fillText(yfmt ? yfmt(v) : (v<0?'−'+Math.abs(v):String(v)), L-6, Y(v)+4); });
+  c.fillStyle=C.muted; if (xlab) rich(c, W-Rr-2, H-8, 14, xlab, 'right');
+  if (ylab){ c.save(); c.globalAlpha=0.85; c.fillStyle=C.surface; c.fillRect(L+2, T-2, 190, 20); c.restore(); c.fillStyle=C.muted; rich(c, L+6, T+12, 14, ylab, 'left'); }
+  c.strokeStyle=C.muted; c.lineWidth=1; c.beginPath(); c.moveTo(L,T); c.lineTo(L,H-B); c.lineTo(W-Rr,H-B); c.stroke();
+  return {X, Y};
+}
+function typeset(el){ if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([el]).catch(()=>{}); }
+const kB = 1.380649e-23, h = 6.62607015e-34, amu = 1.66053907e-27, eV = 1.602176634e-19, NA = 6.02214076e23, me = 9.1093837e-31;
+const muIdeal = (m, T, P) => -kB*T*Math.log(kB*T/P*Math.pow(2*Math.PI*m*kB*T/(h*h), 1.5));
+
+/* ================= RABBIT BUDGET ================= */
+function budRender(){
+  const M = +$('bGas').value, T = +$('bT').value, P = Math.pow(10, +$('bP').value), m = M*amu, N = NA;
+  const V = N*kB*T/P, U = 1.5*N*kB*T, S = N*kB*(Math.log(V/N*Math.pow(4*Math.PI*m*U/(3*N*h*h), 1.5)) + 2.5);
+  const PV = P*V, TS = T*S, H = U + PV, F = U - TS, G = H - TS;
+  $('bTOut').textContent = T + ' K'; $('bPOut').textContent = P >= 1e4 ? (P/1e5).toPrecision(3) + ' bar' : (P/1000).toPrecision(3) + ' kPa';
+  const kJ = x => signed(x/1000, 2) + ' kJ';
+  $('sqU').textContent = kJ(U); $('sqH').textContent = kJ(H); $('sqF').textContent = kJ(F); $('sqG').textContent = kJ(G);
+  $('bMu').textContent = signed(G/N/eV, 4) + ' eV'; $('bMu2').textContent = signed(muIdeal(m, T, P)/eV, 4) + ' eV';
+  const c = budCtx; if (!c) return;
+  const W0=640, H0=300; c.clearRect(0,0,W0,H0); c.fillStyle=C.surface; c.fillRect(0,0,W0,H0);
+  const vals = [['U', U, C.u],['+PV', PV, C.pv],['H', H, C.ink],['−TS', -TS, C.ts],['F = U − TS', F, C.acc],['G = H − TS', G, C.acc]];
+  const vmax = Math.max(H*1.35, 1), vmin = Math.min(H - TS, F, G, 0)*1.08, L = 60, Rr = 20, T0 = 20, B = 50;
+  const Y = v => T0 + (vmax - v)/(vmax - vmin)*(H0 - T0 - B), bw = (W0 - L - Rr)/vals.length;
+  c.strokeStyle=C.rule; c.beginPath(); c.moveTo(L, Y(0)); c.lineTo(W0-Rr, Y(0)); c.stroke();
+  c.fillStyle=C.muted; c.font='12px '+SANS; c.textAlign='right'; c.fillText('0', L-6, Y(0)+4);
+  // waterfall: U, then PV stacked to H, then -TS hanging from H/U
+  const bars = [[0,U],[U,U+PV],[0,H],[H,H-TS],[0,F],[0,G]];
+  vals.forEach(([lab, v, col], i) => { const [a,b] = bars[i], x = L + i*bw + bw*0.18, w = bw*0.64;
+    c.fillStyle = col; c.globalAlpha = i === 2 ? 0.25 : 0.85; c.fillRect(x, Math.min(Y(a),Y(b)), w, Math.abs(Y(a)-Y(b))); c.globalAlpha=1;
+    c.fillStyle=C.ink; c.font='600 13px '+SANS; c.textAlign='center'; c.fillText(lab, x + w/2, H0 - 28);
+    c.font='12px '+SANS; c.fillStyle=C.muted; c.fillText(signed(v/1000, 1) + ' kJ', x + w/2, H0 - 12); });
+}
+['bGas','bT','bP'].forEach(id => $(id).addEventListener('input', budRender));
+
+/* ================= ELECTROLYSIS / FUEL CELL ================= */
+let elMode = 'lysis';
+function elRender(){
+  document.querySelectorAll('[data-el]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.el === elMode)));
+  const lysis = elMode === 'lysis';
+  $('elCap').innerHTML = lysis ? 'Splitting a mole of water: ΔH = 286 kJ is needed, but 49 kJ of it can flow in as heat (TΔS), so only ΔG = 237 kJ must come as electrical work. 4 kJ of the energy goes into pushing the atmosphere away, leaving ΔU = 282 kJ.' : 'Running it backward in a hydrogen fuel cell: up to ΔG = 237 kJ comes out as electrical work, and at least 49 kJ must leave as heat to dispose of the entropy. The atmosphere does 4 kJ of work collapsing into the space the gases leave.';
+  const c = elCtx; if (!c) return;
+  const W0=640, H0=300; c.clearRect(0,0,W0,H0); c.fillStyle=C.surface; c.fillRect(0,0,W0,H0);
+  const bx = 230, by = 110, bw = 180, bh = 80;
+  c.fillStyle=C.band; c.fillRect(bx, by, bw, bh); c.strokeStyle=C.ink; c.lineWidth=1.5; c.strokeRect(bx, by, bw, bh);
+  c.fillStyle=C.ink; c.font='600 14px '+SANS; c.textAlign='center'; c.fillText('System', bx+bw/2, by+34); c.font='13px '+SANS; c.fillText('ΔU = ' + (lysis ? '+' : '−') + '282 kJ', bx+bw/2, by+56);
+  const arrow = (x0, y0, x1, y1, w, col) => { const ang = Math.atan2(y1-y0, x1-x0), hl = 14, nx = -Math.sin(ang), ny = Math.cos(ang), bx2 = x1 - Math.cos(ang)*hl, by2 = y1 - Math.sin(ang)*hl;
+    c.fillStyle = col; c.beginPath(); c.moveTo(x0+nx*w/2, y0+ny*w/2); c.lineTo(bx2+nx*w/2, by2+ny*w/2); c.lineTo(bx2+nx*(w/2+7), by2+ny*(w/2+7)); c.lineTo(x1, y1); c.lineTo(bx2-nx*(w/2+7), by2-ny*(w/2+7)); c.lineTo(bx2-nx*w/2, by2-ny*w/2); c.lineTo(x0-nx*w/2, y0-ny*w/2); c.closePath(); c.fill(); };
+  const s = 0.11;
+  if (lysis){ arrow(40, 150, bx-4, 150, 237*s, C.acc); arrow(W0-40, 150, bx+bw+4, 150, 49*s, C.ts); arrow(bx+bw/2, by-4, bx+bw/2, 30, 4*s+2, C.pv); }
+  else { arrow(bx-4, 150, 40, 150, 237*s, C.acc); arrow(bx+bw+4, 150, W0-40, 150, 49*s, C.ts); arrow(bx+bw/2, 30, bx+bw/2, by-4, 4*s+2, C.pv); }
+  c.font='13px '+SANS; c.textAlign='center';
+  c.fillStyle=C.acc; c.fillText((lysis ? 'ΔG = 237 kJ in' : '237 kJ out') + ' (electrical work)', 130, 196);
+  c.fillStyle=C.ts; c.fillText((lysis ? 'TΔS = 49 kJ in' : '49 kJ out') + ' (heat)', 520, 196);
+  c.fillStyle=C.pv; c.fillText('PΔV = 4 kJ ' + (lysis ? '(pushing the atmosphere away)' : '(atmosphere pushes back in)'), bx+bw/2, 22);
+  c.fillStyle=C.muted; c.font='12px '+SANS; c.fillText(lysis ? 'H₂O → H₂ + ½ O₂' : 'H₂ + ½ O₂ → H₂O', bx+bw/2, by+bh+30);
+  c.fillText('ΔH = ' + (lysis ? '+' : '−') + '286 kJ = ΔU + PΔV', bx+bw/2, by+bh+50);
+}
+document.querySelectorAll('[data-el]').forEach(b => b.addEventListener('click', () => { elMode = b.dataset.el; elRender(); }));
+
+/* ================= THERMODYNAMIC SQUARE ================= */
+let pot = 'U';
+const POT = {
+  U: {nat:['S','V'], id:'dU = T\\,dS - P\\,dV + \\mu\\,dN', der:['T = \\left(\\frac{\\partial U}{\\partial S}\\right)_{V,N}', 'P = -\\left(\\frac{\\partial U}{\\partial V}\\right)_{S,N}', '\\mu = \\left(\\frac{\\partial U}{\\partial N}\\right)_{S,V}'], mx:'\\left(\\frac{\\partial T}{\\partial V}\\right)_S = -\\left(\\frac{\\partial P}{\\partial S}\\right)_V'},
+  H: {nat:['S','P'], id:'dH = T\\,dS + V\\,dP + \\mu\\,dN', der:['T = \\left(\\frac{\\partial H}{\\partial S}\\right)_{P,N}', 'V = \\left(\\frac{\\partial H}{\\partial P}\\right)_{S,N}', '\\mu = \\left(\\frac{\\partial H}{\\partial N}\\right)_{S,P}'], mx:'\\left(\\frac{\\partial T}{\\partial P}\\right)_S = \\left(\\frac{\\partial V}{\\partial S}\\right)_P'},
+  F: {nat:['T','V'], id:'dF = -S\\,dT - P\\,dV + \\mu\\,dN', der:['S = -\\left(\\frac{\\partial F}{\\partial T}\\right)_{V,N}', 'P = -\\left(\\frac{\\partial F}{\\partial V}\\right)_{T,N}', '\\mu = \\left(\\frac{\\partial F}{\\partial N}\\right)_{T,V}'], mx:'\\left(\\frac{\\partial S}{\\partial V}\\right)_T = \\left(\\frac{\\partial P}{\\partial T}\\right)_V'},
+  G: {nat:['T','P'], id:'dG = -S\\,dT + V\\,dP + \\mu\\,dN', der:['S = -\\left(\\frac{\\partial G}{\\partial T}\\right)_{P,N}', 'V = \\left(\\frac{\\partial G}{\\partial P}\\right)_{T,N}', '\\mu = \\left(\\frac{\\partial G}{\\partial N}\\right)_{T,P}'], mx:'-\\left(\\frac{\\partial S}{\\partial P}\\right)_T = \\left(\\frac{\\partial V}{\\partial T}\\right)_P'}
+};
+function potRender(){
+  document.querySelectorAll('[data-pot]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pot === pot)));
+  const p = POT[pot];
+  $('potOut').innerHTML = '<p class="cap" style="margin:0 0 .3rem">Identity</p><div>\\(' + p.id + '\\)</div><p class="cap" style="margin:.75rem 0 .3rem">Natural variables: ' + p.nat.join(' and ') + ' (and N)</p>' + p.der.map(d => '<div style="margin:.2rem 0">\\(\\displaystyle ' + d + '\\)</div>').join('') + '<p class="cap" style="margin:.75rem 0 .3rem">Maxwell relation</p><div>\\(\\displaystyle ' + p.mx + '\\)</div>';
+  typeset($('potOut'));
+  const c = sqCtx; if (!c) return;
+  const W0=640, H0=420; c.clearRect(0,0,W0,H0); c.fillStyle=C.surface; c.fillRect(0,0,W0,H0);
+  const x0 = 180, y0 = 50, s = 280, pos = {V:[x0,y0], F:[x0+s/2,y0], T:[x0+s,y0], U:[x0,y0+s/2], G:[x0+s,y0+s/2], S:[x0,y0+s], H:[x0+s/2,y0+s], P:[x0+s,y0+s]};
+  c.strokeStyle=C.rule; c.lineWidth=1.5; c.strokeRect(x0, y0, s, s);
+  // arrows S→T and P→V (the diagonals)
+  const arr = (a, b) => { const [ax_,ay] = pos[a], [bx,by] = pos[b], ang = Math.atan2(by-ay, bx-ax_), sx = ax_ + Math.cos(ang)*26, sy = ay + Math.sin(ang)*26, ex = bx - Math.cos(ang)*26, ey = by - Math.sin(ang)*26;
+    c.strokeStyle=C.ink; c.lineWidth=2.4; c.beginPath(); c.moveTo(sx, sy); c.lineTo(ex, ey); c.stroke();
+    c.fillStyle=C.ink; c.beginPath(); c.moveTo(ex, ey); c.lineTo(ex - Math.cos(ang-0.4)*14, ey - Math.sin(ang-0.4)*14); c.lineTo(ex - Math.cos(ang+0.4)*14, ey - Math.sin(ang+0.4)*14); c.closePath(); c.fill(); };
+  arr('S','T'); arr('P','V');
+  const p2 = POT[pot];
+  Object.entries(pos).forEach(([k,[x,y]]) => {
+    const isPot = 'UHFG'.includes(k), sel = k === pot, nat = p2.nat.includes(k);
+    if (sel || nat){ c.fillStyle = sel ? C.acc : C.gold; c.globalAlpha = 0.25; c.beginPath(); c.arc(x, y, 26, 0, 7); c.fill(); c.globalAlpha = 1; }
+    c.fillStyle = sel ? C.acc : nat ? C.gold : C.ink; c.font = (isPot ? 'italic 500 ' : 'italic ') + '32px ' + SERIF; c.textAlign='center'; c.fillText(k, x, y + 11);
+  });
+  // signs: arrow tails are negative, heads positive
+  c.font='600 13px '+SANS; c.fillStyle=C.muted; c.fillText('(−)', pos.S[0]-34, pos.S[1]+6); c.fillText('(+)', pos.T[0]+34, pos.T[1]+6); c.fillText('(−)', pos.P[0]+34, pos.P[1]+6); c.fillText('(+)', pos.V[0]-34, pos.V[1]+6);
+  c.font='12px '+SANS; c.textAlign='left'; c.fillStyle=C.muted;
+  c.fillText('Each potential sits between its natural variables (gold); conjugate pairs are joined by the arrows.', 16, H0-28);
+  c.fillText('The sign comes from the arrow: for example, (∂U/∂V) at fixed S is −P, and (∂F/∂T) at fixed V is −S.', 16, H0-10);
+}
+document.querySelectorAll('[data-pot]').forEach(b => b.addEventListener('click', () => { pot = b.dataset.pot; potRender(); }));
+
+/* ================= Cp - Cv ================= */
+let cpSub = 'water';
+const SUB = {
+  water: {name:'Water', V:18.07e-6, beta:2.57e-4, kap:4.52e-10, Cp:75.29},
+  hg:    {name:'Mercury', V:14.81e-6, beta:1.81e-4, kap:4.04e-11, Cp:27.98},
+  gas:   {name:'Ideal gas (monatomic)', V:0.0245, beta:1/298, kap:1/1e5, Cp:2.5*8.314}
+};
+function cpRender(){
+  document.querySelectorAll('[data-cp]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.cp === cpSub)));
+  const s = SUB[cpSub], T = 298, d = T*s.V*s.beta*s.beta/s.kap, Cv = s.Cp - d;
+  const sci = x => { const e = Math.floor(Math.log10(Math.abs(x))), m = x/Math.pow(10,e); return m.toFixed(2) + ' × 10<sup>' + (e<0?'−'+(-e):e) + '</sup>'; };
+  $('cpStats').innerHTML = '<dt>β</dt><dd>' + sci(s.beta) + ' K<sup>−1</sup></dd><dt>κ<sub>T</sub></dt><dd>' + sci(s.kap) + ' Pa<sup>−1</sup></dd><dt>Molar volume</dt><dd>' + (s.V >= 1e-3 ? (s.V*1000).toFixed(1) + ' L' : (s.V*1e6).toFixed(2) + ' cm³') + '</dd><dt class="sep"></dt>' +
+    '<dt>C<sub>P</sub> − C<sub>V</sub> = TVβ²/κ<sub>T</sub></dt><dd>' + d.toFixed(2) + ' J/K</dd><dt>As a share of C<sub>P</sub></dt><dd>' + (d/s.Cp*100).toFixed(1) + '%</dd>' + (cpSub === 'gas' ? '<dt>Compare R</dt><dd>8.31 J/K</dd>' : '');
+  const c = cpCtx; if (!c) return;
+  const W0=640, H0=220; c.clearRect(0,0,W0,H0); c.fillStyle=C.surface; c.fillRect(0,0,W0,H0);
+  const L = 120, sc = (W0 - L - 120)/s.Cp;
+  [['C_P', s.Cp, C.ts],['C_V', Cv, C.u]].forEach(([lab, v, col], i) => { const y = 50 + i*70;
+    c.fillStyle = col; c.fillRect(L, y, v*sc, 34);
+    rich(c, L - 12, y + 23, 18, [[lab[0],'i'],[lab.slice(2),'isub']], 'right');
+    c.fillStyle=C.ink; c.font='13px '+SANS; c.textAlign='left'; c.fillText(v.toFixed(2) + ' J/K', L + v*sc + 8, y + 22); });
+  c.fillStyle=C.muted; c.font='12px '+SANS; c.textAlign='left'; c.fillText(s.name + ', one mole, 298 K', 16, 24);
+}
+document.querySelectorAll('[data-cp]').forEach(b => b.addEventListener('click', () => { cpSub = b.dataset.cp; cpRender(); }));
+
+/* ================= F MINIMIZATION ================= */
+const LF = new Float64Array(201); for (let k=1;k<=200;k++) LF[k] = LF[k-1] + Math.log(k);
+const lnC = (n, k) => LF[n] - LF[k] - LF[n-k];
+function fmRender(){
+  const t = +$('fmT').value, N = 100;
+  $('fmTOut').textContent = t.toFixed(2);
+  const U = n => n, TS = n => t*lnC(N, n), F = n => U(n) - TS(n);
+  let best = 0; for (let n=1;n<=N;n++) if (F(n) < F(best)) best = n;
+  const an = N/(Math.exp(1/t) + 1);
+  $('fmN').textContent = best; $('fmA').textContent = an.toFixed(1);
+  $('fmV').textContent = t < 0.3 ? 'Low temperature: lowering the energy wins, and almost every particle stays in its ground state.' : t > 2.5 ? 'High temperature: raising the entropy wins, and the system approaches half excited.' : 'In between: the free-energy minimum balances lower energy against higher entropy.';
+  const c = fmCtx; if (!c) return;
+  const W0=640, H0=340, ymin = -70*Math.max(1, t/1.5), ymax = 100;
+  const yt = []; const st = (ymax - ymin) > 300 ? 100 : 50; for (let v = Math.ceil(ymin/st)*st; v <= ymax; v += st) yt.push(v);
+  const ax = axes(c, W0, H0, [56,16,16,40], [0,100], [ymin, ymax], [0,25,50,75,100], yt, [['n','i'],['  (excited particles, of 100)','s']], [['energy (units of ','s'],['ε','i'],[')','s']]);
+  c.save(); c.beginPath(); c.rect(56,16,W0-72,H0-56); c.clip();
+  [[U, C.u, 2],[n => -TS(n), C.ts, 2],[F, C.acc, 3]].forEach(([f,col,w]) => { c.strokeStyle=col; c.lineWidth=w; c.beginPath(); for (let n=0;n<=N;n++){ const y = ax.Y(f(n)); n?c.lineTo(ax.X(n),y):c.moveTo(ax.X(n),y); } c.stroke(); });
+  c.restore();
+  c.fillStyle=C.acc; c.beginPath(); c.arc(ax.X(best), ax.Y(F(best)), 7, 0, 7); c.fill();
+  c.fillStyle=C.muted; c.font='12px '+SANS; c.textAlign='left'; c.fillText('minimum of F', ax.X(best)+10, ax.Y(F(best))+18);
+}
+$('fmT').addEventListener('input', fmRender);
+
+/* ================= EXTENSIVE / INTENSIVE GAME ================= */
+const QS = [['Volume V','E'],['Particles N','E'],['Entropy S','E'],['Energy U','E'],['Enthalpy H','E'],['Free energy F','E'],['Free energy G','E'],['Mass','E'],['Heat capacity C','E'],['Temperature T','I'],['Pressure P','I'],['Chemical potential μ','I'],['Density','I'],['Specific heat c = C/m','I']];
+const ans = {};
+function gameRender(){
+  $('game').innerHTML = QS.map(([n,k],i) => { const a = ans[i]; const cls = a === undefined ? '' : a === k ? ' ok' : ' no';
+    return '<div class="qrow' + cls + '"><span class="nm">' + n + (a !== undefined ? '<span class="fb">' + (a === k ? '✓' : '✗ ' + (k === 'E' ? 'extensive' : 'intensive')) + '</span>' : '') + '</span><span class="bt"><button type="button" data-q="' + i + '" data-a="E" aria-pressed="' + (a === 'E') + '">Ext.</button><button type="button" data-q="' + i + '" data-a="I" aria-pressed="' + (a === 'I') + '">Int.</button></span></div>'; }).join('');
+  const done = Object.keys(ans).length, right = Object.entries(ans).filter(([i,a]) => QS[i][1] === a).length;
+  $('gameScore').textContent = done ? right + ' of ' + done + ' right' + (done === QS.length ? (right === QS.length ? '. All correct!' : '.') : ' so far.') + ' (Problem 5.21: the heat capacity C is extensive, the specific heat c = C/m intensive.)' : 'Click Ext. or Int. for each quantity.';
+  document.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => { ans[b.dataset.q] = b.dataset.a; gameRender(); }));
+}
+
+/* ================= MU(T,P) ================= */
+function muRender(){
+  const T = +$('mT').value, m = 4.0026*amu, P0 = 1e5, mu0 = muIdeal(m, T, P0)/eV;
+  $('mTOut').textContent = T + ' K'; $('mMu0').textContent = signed(mu0, 3) + ' eV'; $('mSl').textContent = (kB*T*Math.LN10/eV*1000).toFixed(1) + ' meV';
+  const c = muCtx; if (!c) return;
+  const W0=640, H0=300, ax = axes(c, W0, H0, [56,16,16,40], [2,8], [-0.9, 0.1], [2,3,4,5,6,7,8], [-0.8,-0.6,-0.4,-0.2,0], [['pressure (Pa, log scale)','s']], [['μ','i'],['  (eV)','s']], v => '10' + String(v).replace(/\d/g, d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]));
+  c.strokeStyle=C.acc; c.lineWidth=3; c.beginPath(); for (let i=0;i<=120;i++){ const lp = 2 + 6*i/120, y = ax.Y(mu0 + kB*T*Math.log(Math.pow(10,lp)/P0)/eV); i?c.lineTo(ax.X(lp),y):c.moveTo(ax.X(lp),y); } c.stroke();
+  c.strokeStyle=C.gold; c.lineWidth=2; c.setLineDash([7,5]); c.beginPath(); for (let i=0;i<=120;i++){ const lp = 2 + 6*i/120, y = ax.Y(muIdeal(m, T, Math.pow(10,lp))/eV); i?c.lineTo(ax.X(lp),y):c.moveTo(ax.X(lp),y); } c.stroke(); c.setLineDash([]);
+  c.fillStyle=C.ink; c.beginPath(); c.arc(ax.X(5), ax.Y(mu0), 6, 0, 7); c.fill();
+  c.fillStyle=C.muted; c.font='12px '+SANS; c.textAlign='left'; rich(c, ax.X(5)+10, ax.Y(mu0)+18, 14, [['μ','i'],['°','sup'],[' at ','s'],['P','i'],['°','sup'],[' = 1 bar','s']], 'left');
+}
+$('mT').addEventListener('input', muRender);
+
+/* ================= SUN: GRAND FREE ENERGY ================= */
+const phiOcc = (T, n) => -13.6 + kB*T*Math.log((1/n)*Math.pow(2*Math.PI*me*kB*T/(h*h), 1.5))/eV;
+function crossT(n){ let lo = 1000, hi = 1e6; if (phiOcc(lo, n) > 0) return lo; for (let k=0;k<100;k++){ const mid = (lo+hi)/2; phiOcc(mid, n) < 0 ? lo = mid : hi = mid; } return lo; }
+function sunRender(){
+  const T = +$('sT').value, n = Math.pow(10, +$('sN').value), ph = phiOcc(T, n), Tx = crossT(n);
+  $('sTOut').textContent = T.toLocaleString('en-US') + ' K';
+  { const e = Math.floor(+$('sN').value), m = Math.pow(10, +$('sN').value - e); $('sNOut').innerHTML = m.toFixed(1) + ' × 10<sup>' + e + '</sup> m<sup>−3</sup>'; }
+  $('sPhi').textContent = signed(ph, 2) + ' eV'; $('sX').textContent = Math.round(Tx/10)*10 + ' K';
+  $('sunV').textContent = ph < 0 ? 'Φ is lower when the proton holds an electron: hydrogen atoms are the more stable state.' : 'Φ is lower for the bare proton: at this temperature and density, hydrogen is mostly ionized.';
+  const c = sunCtx; if (!c) return;
+  const W0=640, H0=300, ax = axes(c, W0, H0, [56,16,30,40], [3000, 20000], [-12, 10], [5000,10000,15000,20000], [-10,-5,0,5,10], [['T','i'],['  (K)','s']], [['Φ','i'],['  (eV)','s']], v => v.toLocaleString('en-US'));
+  c.fillStyle=C.ts; c.globalAlpha=0.07; c.fillRect(ax.X(Math.max(3000,Tx)), 16, ax.X(20000) - ax.X(Math.max(3000,Tx)), H0-56); c.globalAlpha=1;
+  c.strokeStyle=C.res; c.lineWidth=2; c.setLineDash([6,4]); c.beginPath(); c.moveTo(ax.X(3000), ax.Y(0)); c.lineTo(ax.X(20000), ax.Y(0)); c.stroke(); c.setLineDash([]);
+  c.save(); c.beginPath(); c.rect(56,16,W0-86,H0-56); c.clip(); c.strokeStyle=C.acc; c.lineWidth=2.8; c.beginPath(); for (let i=0;i<=200;i++){ const TT = 3000 + 17000*i/200, y = ax.Y(phiOcc(TT, n)); i?c.lineTo(ax.X(TT),y):c.moveTo(ax.X(TT),y); } c.stroke(); c.restore();
+  c.fillStyle=C.ink; c.beginPath(); c.arc(ax.X(T), ax.Y(Math.max(-12, Math.min(10, ph))), 6, 0, 7); c.fill();
+  if (Tx > 3000 && Tx < 20000){ c.fillStyle=C.ts; c.beginPath(); c.arc(ax.X(Tx), ax.Y(0), 5, 0, 7); c.fill(); }
+  c.fillStyle=C.muted; c.font='12px '+SANS; c.textAlign='left'; c.fillText('occupied (hydrogen atom)', ax.X(3200), ax.Y(phiOcc(3400, n)) - 10); c.textAlign='right'; c.fillText('unoccupied (bare proton), Φ = 0', ax.X(19800), ax.Y(0) - 8); c.fillText('ionized wins', ax.X(19800), 34);
+}
+['sT','sN'].forEach(id => $(id).addEventListener('input', sunRender));
+
+/* ================= LAYOUT ================= */
+let budCtx, elCtx, sqCtx, cpCtx, fmCtx, muCtx, sunCtx;
+function layout(){
+  budCtx = fit($('budCanvas'), 640, 300); elCtx = fit($('elCanvas'), 640, 300); sqCtx = fit($('sqCanvas'), 640, 420);
+  cpCtx = fit($('cpCanvas'), 640, 220); fmCtx = fit($('fmCanvas'), 640, 340); muCtx = fit($('muCanvas'), 640, 300); sunCtx = fit($('sunCanvas'), 640, 300);
+  redrawAll();
+}
+function redrawAll(){ budRender(); elRender(); potRender(); cpRender(); fmRender(); muRender(); sunRender(); }
+let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(layout, 80); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); redrawAll(); });
+gameRender();
+layout();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll);
+})();
+</script>
+</body>
+</html>
