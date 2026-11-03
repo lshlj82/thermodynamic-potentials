@@ -256,7 +256,7 @@ button.theme-btn svg{width:20px; height:20px; fill:none; stroke:currentColor; st
     <div class="panel">
       <div class="ctl">
         <label for="fmT"><span class="lt">\(k_{\mathrm{B}}T/\varepsilon\)</span> <output id="fmTOut"></output></label>
-        <input type="range" id="fmT" min="0.05" max="5" step="0.01" value="0.5">
+        <input type="range" id="fmT" aria-label="k_B T over ε, temperature in units of the excitation energy" min="0.05" max="5" step="0.01" value="0.5">
       </div>
       <dl class="stats">
         <dt>\(F\) is smallest at \(n\) =</dt><dd id="fmN">–</dd>
@@ -514,7 +514,9 @@ function fmRender(){
   $('fmN').textContent = best; $('fmA').textContent = an.toFixed(1);
   $('fmV').textContent = t < 0.3 ? 'Low temperature: lowering the energy wins, and almost every particle stays in its ground state.' : t > 2.5 ? 'High temperature: raising the entropy wins, and the system approaches half excited.' : 'In between: the free-energy minimum balances lower energy against higher entropy.';
   const c = fmCtx; if (!c) return;
-  const W0=640, H0=340, ymin = -70*Math.max(1, t/1.5), ymax = 100;
+  // the axis always reaches the lowest point of the −TS and F curves (and so the marked minimum of F)
+  let lo = 0; for (let n=0;n<=N;n++) lo = Math.min(lo, -TS(n), F(n));
+  const W0=640, H0=340, ymax = 100, ymin = Math.min(-70*Math.max(1, t/1.5), lo - 0.06*(ymax - lo));
   const yt = []; const st = (ymax - ymin) > 300 ? 100 : 50; for (let v = Math.ceil(ymin/st)*st; v <= ymax; v += st) yt.push(v);
   const ax = axes(c, W0, H0, [56,16,16,40], [0,100], [ymin, ymax], [0,25,50,75,100], yt, [['n','i'],['  (excited particles, of 100)','s']], [['energy (units of ','s'],['ε','i'],[')','s']]);
   c.save(); c.beginPath(); c.rect(56,16,W0-72,H0-56); c.clip();
@@ -533,7 +535,8 @@ function gameRender(){
     return '<div class="qrow' + cls + '"><span class="nm">' + n + (a !== undefined ? '<span class="fb">' + (a === k ? '✓' : '✗ ' + (k === 'E' ? 'extensive' : 'intensive')) + '</span>' : '') + '</span><span class="bt"><button type="button" data-q="' + i + '" data-a="E" aria-pressed="' + (a === 'E') + '">Ext.</button><button type="button" data-q="' + i + '" data-a="I" aria-pressed="' + (a === 'I') + '">Int.</button></span></div>'; }).join('');
   const done = Object.keys(ans).length, right = Object.entries(ans).filter(([i,a]) => QS[i][1] === a).length;
   $('gameScore').textContent = done ? right + ' of ' + done + ' right' + (done === QS.length ? (right === QS.length ? '. All correct!' : '.') : ' so far.') + ' (Problem 5.21: the heat capacity C is extensive, the specific heat c = C/m intensive.)' : 'Click Ext. or Int. for each quantity.';
-  document.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => { ans[b.dataset.q] = b.dataset.a; gameRender(); }));
+  // the rows are rebuilt, so put the keyboard focus back on the button that was just pressed
+  document.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => { const q = b.dataset.q, a = b.dataset.a; ans[q] = a; gameRender(); const nb = document.querySelector('[data-q="' + q + '"][data-a="' + a + '"]'); if (nb) nb.focus(); }));
 }
 
 /* ================= MU(T,P) ================= */
@@ -541,7 +544,11 @@ function muRender(){
   const T = +$('mT').value, m = 4.0026*amu, P0 = 1e5, mu0 = muIdeal(m, T, P0)/eV;
   $('mTOut').textContent = T + ' K'; $('mMu0').textContent = signed(mu0, 3) + ' eV'; $('mSl').textContent = (kB*T*Math.LN10/eV*1000).toFixed(1) + ' meV';
   const c = muCtx; if (!c) return;
-  const W0=640, H0=300, ax = axes(c, W0, H0, [56,16,16,40], [2,8], [-0.9, 0.1], [2,3,4,5,6,7,8], [-0.8,-0.6,-0.4,-0.2,0], [['pressure (Pa, log scale)','s']], [['μ','i'],['  (eV)','s']], v => '10' + String(v).replace(/\d/g, d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]));
+  // widen the default μ range when the curves or the marked μ° would leave it
+  const ends = [1e2, 1e8].flatMap(P => [mu0 + kB*T*Math.log(P/P0)/eV, muIdeal(m, T, P)/eV]).concat(mu0), lo = Math.min(...ends), hi = Math.max(...ends);
+  const y0 = Math.min(-0.9, Math.floor((lo - 0.05)/0.2)*0.2), y1 = Math.max(0.1, hi + 0.1), st = y1 - y0 > 1.4 ? 0.5 : 0.2, yt = [];
+  for (let k = Math.ceil(y0/st - 1e-9); k <= Math.floor(y1/st + 1e-9); k++) yt.push(+(k*st).toFixed(2));
+  const W0=640, H0=300, ax = axes(c, W0, H0, [56,16,16,40], [2,8], [y0, y1], [2,3,4,5,6,7,8], yt, [['pressure (Pa, log scale)','s']], [['μ','i'],['  (eV)','s']], v => '10' + String(v).replace(/\d/g, d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]));
   c.strokeStyle=C.acc; c.lineWidth=3; c.beginPath(); for (let i=0;i<=120;i++){ const lp = 2 + 6*i/120, y = ax.Y(mu0 + kB*T*Math.log(Math.pow(10,lp)/P0)/eV); i?c.lineTo(ax.X(lp),y):c.moveTo(ax.X(lp),y); } c.stroke();
   c.strokeStyle=C.gold; c.lineWidth=2; c.setLineDash([7,5]); c.beginPath(); for (let i=0;i<=120;i++){ const lp = 2 + 6*i/120, y = ax.Y(muIdeal(m, T, Math.pow(10,lp))/eV); i?c.lineTo(ax.X(lp),y):c.moveTo(ax.X(lp),y); } c.stroke(); c.setLineDash([]);
   c.fillStyle=C.ink; c.beginPath(); c.arc(ax.X(5), ax.Y(mu0), 6, 0, 7); c.fill();
